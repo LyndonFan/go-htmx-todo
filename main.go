@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/gorilla/mux"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var db *sql.DB
@@ -34,6 +34,7 @@ func main() {
 	r.HandleFunc("/todos", GetAllTodos).Methods("GET")
 	r.HandleFunc("/todos", CreateTodo).Methods("POST")
 	r.HandleFunc("/todos/{id}", UpdateTodo).Methods("PUT")
+	r.HandleFunc("/todos/{id}", DeleteTodo).Methods("DELETE")
 
 	http.Handle("/", r)
 
@@ -101,4 +102,17 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func DeleteTodo(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	_, err := db.Exec("DELETE FROM todos WHERE id = ?", id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
