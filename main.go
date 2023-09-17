@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"time"
@@ -22,6 +23,19 @@ type Todo struct {
 	Status       string    `json:"status"`
 }
 
+var (
+	todoRowTemplate = parseTemplate("templates/todos.html", "todoRow")
+	homeTemplate    = parseTemplate("templates/index.html", "home")
+)
+
+func parseTemplate(filename, templateName string) *template.Template {
+	tmpl, err := template.New(templateName).ParseFiles(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return tmpl
+}
+
 func main() {
 	var err error
 	db, err = sql.Open("sqlite3", "todo.db")
@@ -31,8 +45,10 @@ func main() {
 	defer db.Close()
 
 	r := mux.NewRouter()
-	r.HandleFunc("/todos", GetAllTodos).Methods("GET")
+	r.HandleFunc("/", GetHomePageHTML).Methods("GET")
+	r.HandleFunc("/todos", GetAllTodosHTML).Methods("GET")
 	r.HandleFunc("/todos", CreateTodo).Methods("POST")
+	r.HandleFunc("/todos/{id}", GetTodoHTML).Methods("GET")
 	r.HandleFunc("/todos/{id}", UpdateTodo).Methods("PUT")
 	r.HandleFunc("/todos/{id}", DeleteTodo).Methods("DELETE")
 
@@ -42,7 +58,18 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func GetAllTodos(w http.ResponseWriter, r *http.Request) {
+func GetHomePageHTML(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("GetHomePageHTML")
+	w.Header().Set("Content-Type", "text/html")
+	err := homeTemplate.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func GetAllTodosHTML(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("GetAllTodosHTML")
 	todos := []Todo{}
 	rows, err := db.Query("SELECT * FROM todos")
 	if err != nil {
@@ -61,11 +88,38 @@ func GetAllTodos(w http.ResponseWriter, r *http.Request) {
 		todos = append(todos, todo)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(todos)
+	w.Header().Set("Content-Type", "text/html")
+
+	for _, todo := range todos {
+		err := todoRowTemplate.Execute(w, todo)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+}
+
+func GetTodoHTML(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("GetTodoHTML")
+	vars := mux.Vars(r)
+	id := vars["id"]
+
+	var todo Todo
+	err := db.QueryRow("SELECT * FROM todos WHERE id = ?", id).Scan(&todo.ID, &todo.Description, &todo.CreatedDate, &todo.DeadlineDate, &todo.Status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	err = todoRowTemplate.Execute(w, todo)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func CreateTodo(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("CreateTodo")
 	var todo Todo
 	err := json.NewDecoder(r.Body).Decode(&todo)
 	if err != nil {
@@ -85,6 +139,7 @@ func CreateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateTodo(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("UpdateTodo")
 	vars := mux.Vars(r)
 	id := vars["id"]
 	var todo Todo
@@ -105,6 +160,7 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteTodo(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("DeleteTodo")
 	vars := mux.Vars(r)
 	id := vars["id"]
 
