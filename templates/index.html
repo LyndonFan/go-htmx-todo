@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
-      <script src="https://unpkg.com/htmx.org@1.9.5"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.5"></script>
     <title>Todo List</title>
 </head>
 <body>
@@ -18,7 +18,7 @@
                     <th>Status</th>
                 </tr>
             </thead>
-            <tbody hx-get="/todos" hx-target="innerHTML">
+            <tbody hx-get="/todos" hx-trigger="load" hx-target="this" hx-swap="innerHTML">
             </tbody>
         </table>
     </div>
