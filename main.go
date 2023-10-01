@@ -23,9 +23,47 @@ type Todo struct {
 	Status       string    `json:"status"`
 }
 
+type TodoForEdit struct {
+	ID           int    `json:"id"`
+	Description  string `json:"description"`
+	CreatedDate  string `json:"created_date"`
+	DeadlineDate string `json:"deadline_date"`
+	Status       string `json:"status"`
+}
+
+func (t Todo) ToEdit() TodoForEdit {
+	return TodoForEdit{
+		ID:           t.ID,
+		Description:  t.Description,
+		CreatedDate:  t.CreatedDate.Format("2006-01-02"),
+		DeadlineDate: t.DeadlineDate.Format("2006-01-02"),
+		Status:       t.Status,
+	}
+}
+
+func (t TodoForEdit) FromEdit() (Todo, error) {
+	createdDate, err := time.Parse("2006-01-02", t.CreatedDate)
+	if err != nil {
+		return Todo{}, err
+	}
+	deadlineDate, err := time.Parse("2006-01-02", t.DeadlineDate)
+	if err != nil {
+		return Todo{}, err
+	}
+	res := Todo{
+		ID:           t.ID,
+		Description:  t.Description,
+		CreatedDate:  createdDate,
+		DeadlineDate: deadlineDate,
+		Status:       t.Status,
+	}
+	return res, nil
+}
+
 var (
-	todoRowTemplate = parseTemplate("templates/todoRow.html", "todoRow")
-	homeTemplate    = parseTemplate("templates/index.html", "home")
+	todoRowTemplate  = parseTemplate("templates/todoRow.html", "todoRow")
+	todoEditTemplate = parseTemplate("templates/todoEdit.html", "todoEdit")
+	homeTemplate     = parseTemplate("templates/index.html", "home")
 )
 
 func parseTemplate(filename, templateName string) *template.Template {
@@ -49,6 +87,7 @@ func main() {
 	r.HandleFunc("/todos", GetAllTodosHTML).Methods("GET")
 	r.HandleFunc("/todos", CreateTodo).Methods("POST")
 	r.HandleFunc("/todos/{id}", GetTodoHTML).Methods("GET")
+	r.HandleFunc("/todos/edit/{id}", EditTodo).Methods("GET")
 	r.HandleFunc("/todos/{id}", UpdateTodo).Methods("PUT")
 	r.HandleFunc("/todos/{id}", DeleteTodoHTML).Methods("DELETE")
 
@@ -120,18 +159,44 @@ func GetTodoHTML(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func CreateTodo(w http.ResponseWriter, r *http.Request) {
-	log.Default().Println("CreateTodo")
+func EditTodo(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("EditTodo")
+	vars := mux.Vars(r)
+	id := vars["id"]
+
 	var todo Todo
-	err := json.NewDecoder(r.Body).Decode(&todo)
+	err := db.QueryRow("SELECT * FROM todos WHERE id = ?", id).Scan(&todo.ID, &todo.Description, &todo.CreatedDate, &todo.DeadlineDate, &todo.Status)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/html")
+	err = todoEditTemplate.Execute(w, todo.ToEdit())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+func CreateTodo(w http.ResponseWriter, r *http.Request) {
+	log.Default().Println("CreateTodo")
+
+	todo := Todo{
+		Description:  "",
+		CreatedDate:  time.Now(),
+		DeadlineDate: time.Now().Add(24 * time.Hour),
+		Status:       "Waiting",
+	}
+
 	// Insert the new todo into the database
-	_, err = db.Exec("INSERT INTO todos (description, created_date, deadline_date, status) VALUES (?, ?, ?, ?)",
-		todo.Description, time.Now(), todo.DeadlineDate, todo.Status)
+	_, err := db.Exec(`
+    	INSERT INTO todos (description, created_date, deadline_date, status)
+    	VALUES (?, ?, ?, ?)
+		RETURNING id  
+	   `,
+		todo.Description, time.Now(), todo.DeadlineDate, todo.Status,
+	)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

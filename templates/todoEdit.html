@@ -1,0 +1,33 @@
+{{define "todoEdit"}}
+<tr id="{{.ID}}">
+    <td>{{.ID}}</td>
+    <td>
+        <input type="text" value="{{.Description}}" id="description">
+    </td>
+    <td>
+        <input type="date" value="{{.CreatedDate}}" id="createdDate">
+    </td>
+    <td>
+        <input type="date" value="{{.DeadlineDate}}" id="deadlineDate">
+    </td>
+    <td>
+        <select id="status">
+            <option value="Waiting" {{if eq .Status "Waiting"}}selected{{end}}>Waiting</option>
+            <option value="Now" {{if eq .Status "Now"}}selected{{end}}>Now</option>
+            <option value="In Progress" {{if eq .Status "In Progress"}}selected{{end}}>In Progress</option>
+            <option value="Done" {{if eq .Status "Done"}}selected{{end}}>Done</option>
+        </select>
+    </td>
+    <td>
+        <button>Submit</button>
+        <button
+            hx-get="/todos/{{.ID}}"
+            hx-trigger="click"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+        >
+            Cancel
+        </button>
+    </td>
+</tr>
+{{end}}

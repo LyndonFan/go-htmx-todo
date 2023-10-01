@@ -6,7 +6,14 @@
 	<td>{{.DeadlineDate}}</td>
 	<td>{{.Status}}</td>
 	<td>
-		<button>Edit</button>
+		<button
+			hx-trigger="click"
+			hx-get="/todos/edit/{{.ID}}"
+			hx-target="closest tr"
+			hx-swap="outerHTML"
+		>
+			Edit
+		</button>
 		<button
 			hx-confirm="Are you sure?"
 			hx-delete="/todos/{{.ID}}"
