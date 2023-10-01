@@ -24,7 +24,7 @@ type Todo struct {
 }
 
 var (
-	todoRowTemplate = parseTemplate("templates/todos.html", "todoRow")
+	todoRowTemplate = parseTemplate("templates/todoRow.html", "todoRow")
 	homeTemplate    = parseTemplate("templates/index.html", "home")
 )
 
@@ -50,7 +50,7 @@ func main() {
 	r.HandleFunc("/todos", CreateTodo).Methods("POST")
 	r.HandleFunc("/todos/{id}", GetTodoHTML).Methods("GET")
 	r.HandleFunc("/todos/{id}", UpdateTodo).Methods("PUT")
-	r.HandleFunc("/todos/{id}", DeleteTodo).Methods("DELETE")
+	r.HandleFunc("/todos/{id}", DeleteTodoHTML).Methods("DELETE")
 
 	http.Handle("/", r)
 
@@ -97,6 +97,8 @@ func GetAllTodosHTML(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	fmt.Fprint(w, "<tr id='last'></tr>")
 }
 
 func GetTodoHTML(w http.ResponseWriter, r *http.Request) {
@@ -159,16 +161,18 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func DeleteTodo(w http.ResponseWriter, r *http.Request) {
-	log.Default().Println("DeleteTodo")
+func DeleteTodoHTML(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
+	log.Default().Printf("DeleteTodo: %s\n", id)
 
 	_, err := db.Exec("DELETE FROM todos WHERE id = ?", id)
 	if err != nil {
+		fmt.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK) // 200, NOT 204, as to trigger HTMX
+	fmt.Fprint(w, "")
 }

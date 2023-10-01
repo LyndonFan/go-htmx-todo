@@ -1,0 +1,19 @@
+{{define "todoRow"}}
+<tr id="{{.ID}}">
+	<td>{{.ID}}</td>
+	<td>{{.Description}}</td>
+	<td>{{.CreatedDate}}</td>
+	<td>{{.DeadlineDate}}</td>
+	<td>{{.Status}}</td>
+	<td>
+		<button>Edit</button>
+		<button
+			hx-confirm="Are you sure?"
+			hx-delete="/todos/{{.ID}}"
+			hx-trigger="click"
+		>
+			Delete
+		</button>
+	</td>
+</tr>
+{{end}}
