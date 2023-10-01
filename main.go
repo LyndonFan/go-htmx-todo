@@ -23,7 +23,7 @@ type Todo struct {
 	Status       string    `json:"status"`
 }
 
-type TodoForEdit struct {
+type TodoDisplay struct {
 	ID           int    `json:"id"`
 	Description  string `json:"description"`
 	CreatedDate  string `json:"created_date"`
@@ -31,8 +31,8 @@ type TodoForEdit struct {
 	Status       string `json:"status"`
 }
 
-func (t Todo) ToEdit() TodoForEdit {
-	return TodoForEdit{
+func (t Todo) ToDisplay() TodoDisplay {
+	return TodoDisplay{
 		ID:           t.ID,
 		Description:  t.Description,
 		CreatedDate:  t.CreatedDate.Format("2006-01-02"),
@@ -41,7 +41,7 @@ func (t Todo) ToEdit() TodoForEdit {
 	}
 }
 
-func (t TodoForEdit) FromEdit() (Todo, error) {
+func (t TodoDisplay) FromDisplay() (Todo, error) {
 	createdDate, err := time.Parse("2006-01-02", t.CreatedDate)
 	if err != nil {
 		return Todo{}, err
@@ -172,7 +172,7 @@ func EditTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	err = todoEditTemplate.Execute(w, todo.ToEdit())
+	err = todoEditTemplate.Execute(w, todo.ToDisplay())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
