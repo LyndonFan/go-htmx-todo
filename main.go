@@ -3,12 +3,11 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"html"
 	"html/template"
 	"io"
 	"log"
 	"net/http"
-	"regexp"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -233,39 +232,37 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	var todoFromDisplay TodoDisplay
 	defer r.Body.Close()
 
-	bodyPattern := regexp.MustCompile(`([a-z_]+)=([^"&]+)`)
 	bodyBytes, err := io.ReadAll(r.Body)
+	bodyString := string(bodyBytes)
+	log.Default().Printf("bodyBytes: %s\n", bodyString)
+	queryParameters, err := url.ParseQuery(bodyString)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Default().Printf("bodyBytes: %s\n", string(bodyBytes))
-	values := bodyPattern.FindAllSubmatch(bodyBytes, -1)
-	if len(values) != 5 {
-		http.Error(w, "Can't find any fields", http.StatusBadRequest)
-		return
-	}
+	fmt.Printf("queryParameters: %v\n", queryParameters)
 
-	for _, value := range values {
-		// value[0] is entire expression
-		fieldName, fieldValue := string(value[1]), string(value[2])
-		fieldValue = html.UnescapeString(fieldValue)
-		switch fieldName {
+	for key, value := range queryParameters {
+		if len(value) != 1 {
+			http.Error(w, fmt.Sprintf("Not exactly 1 argument for %s", key), http.StatusBadRequest)
+			return
+		}
+		switch key {
 		case "id":
-			n, err := strconv.Atoi(fieldValue)
+			n, err := strconv.Atoi(value[0])
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 			todoFromDisplay.ID = n
 		case "description":
-			todoFromDisplay.Description = fieldValue
+			todoFromDisplay.Description = value[0]
 		case "created_date":
-			todoFromDisplay.CreatedDate = fieldValue
+			todoFromDisplay.CreatedDate = value[0]
 		case "deadline_date":
-			todoFromDisplay.DeadlineDate = fieldValue
+			todoFromDisplay.DeadlineDate = value[0]
 		case "status":
-			todoFromDisplay.Status = fieldValue
+			todoFromDisplay.Status = value[0]
 		default:
 			http.Error(w, "Can't find any fields", http.StatusBadRequest)
 			return
