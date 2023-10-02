@@ -2,11 +2,14 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -16,19 +19,19 @@ import (
 var db *sql.DB
 
 type Todo struct {
-	ID           int       `json:"id"`
-	Description  string    `json:"description"`
-	CreatedDate  time.Time `json:"created_date"`
-	DeadlineDate time.Time `json:"deadline_date"`
-	Status       string    `json:"status"`
+	ID           int
+	Description  string
+	CreatedDate  time.Time
+	DeadlineDate time.Time
+	Status       string
 }
 
 type TodoDisplay struct {
-	ID           int    `json:"id"`
-	Description  string `json:"description"`
-	CreatedDate  string `json:"created_date"`
-	DeadlineDate string `json:"deadline_date"`
-	Status       string `json:"status"`
+	ID           int
+	Description  string
+	CreatedDate  string
+	DeadlineDate string
+	Status       string
 }
 
 func (t Todo) ToDisplay() TodoDisplay {
@@ -130,7 +133,8 @@ func GetAllTodosHTML(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 
 	for _, todo := range todos {
-		err := todoRowTemplate.Execute(w, todo)
+		todoForDisplay := todo.ToDisplay()
+		err := todoRowTemplate.Execute(w, todoForDisplay)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -153,7 +157,8 @@ func GetTodoHTML(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html")
-	err = todoRowTemplate.Execute(w, todo)
+	todoForDisplay := todo.ToDisplay()
+	err = todoRowTemplate.Execute(w, todoForDisplay)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -189,7 +194,7 @@ func CreateTodo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Insert the new todo into the database
-	_, err := db.Exec(`
+	res, err := db.Exec(`
     	INSERT INTO todos (description, created_date, deadline_date, status)
     	VALUES (?, ?, ?, ?)
 		RETURNING id  
@@ -201,19 +206,75 @@ func CreateTodo(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.WriteHeader(http.StatusCreated)
+	n, err := res.LastInsertId()
+	fmt.Printf("res: %d %v\n", n, err)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	todo.ID = int(n)
+	todoForDisplay, err := todo.ToDisplay().FromDisplay()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	err = todoEditTemplate.Execute(w, todoForDisplay)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	fmt.Fprint(w, "<tr id='last'></tr>")
 }
 
 func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 	log.Default().Println("UpdateTodo")
 	vars := mux.Vars(r)
 	id := vars["id"]
-	var todo Todo
+	var todoFromDisplay TodoDisplay
+	defer r.Body.Close()
 
-	err := json.NewDecoder(r.Body).Decode(&todo)
+	bodyPattern := regexp.MustCompile(`([a-z_]+)=([^"&]+)`)
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Default().Printf("bodyBytes: %s\n", string(bodyBytes))
+	values := bodyPattern.FindAllSubmatch(bodyBytes, -1)
+	if len(values) != 5 {
+		http.Error(w, "Can't find any fields", http.StatusBadRequest)
+		return
+	}
+
+	for _, value := range values {
+		// value[0] is entire expression
+		fieldName, fieldValue := string(value[1]), string(value[2])
+		fieldValue = html.UnescapeString(fieldValue)
+		switch fieldName {
+		case "id":
+			n, err := strconv.Atoi(fieldValue)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			todoFromDisplay.ID = n
+		case "description":
+			todoFromDisplay.Description = fieldValue
+		case "created_date":
+			todoFromDisplay.CreatedDate = fieldValue
+		case "deadline_date":
+			todoFromDisplay.DeadlineDate = fieldValue
+		case "status":
+			todoFromDisplay.Status = fieldValue
+		default:
+			http.Error(w, "Can't find any fields", http.StatusBadRequest)
+			return
+		}
+	}
+
+	todo, err := todoFromDisplay.FromDisplay()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -223,7 +284,11 @@ func UpdateTodo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "text/html")
+	err = todoRowTemplate.Execute(w, todoFromDisplay)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func DeleteTodoHTML(w http.ResponseWriter, r *http.Request) {
@@ -239,5 +304,6 @@ func DeleteTodoHTML(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK) // 200, NOT 204, as to trigger HTMX
-	fmt.Fprint(w, "")
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(""))
 }
