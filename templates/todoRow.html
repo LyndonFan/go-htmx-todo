@@ -19,6 +19,8 @@
 			hx-confirm="Are you sure?"
 			hx-delete="/todos/{{.ID}}"
 			hx-trigger="click"
+			hx-target="closest tr"
+			hx-swap="outerHTML"
 		>
 			Delete
 		</button>
