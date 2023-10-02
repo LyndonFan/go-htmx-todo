@@ -1,17 +1,17 @@
 {{define "todoEdit"}}
 <tr id="{{.ID}}">
-    <td>{{.ID}}</td>
     <td>
-        <input type="text" value="{{.Description}}" id="description">
+        <input type="hidden" name="id" value="{{.ID}}" id="rowID">
+        <input type="text" name="description" value="{{.Description}}" id="description">
     </td>
     <td>
-        <input type="date" value="{{.CreatedDate}}" id="createdDate">
+        <input type="date" name="createdDate" value="{{.CreatedDate}}" id="createdDate">
     </td>
     <td>
-        <input type="date" value="{{.DeadlineDate}}" id="deadlineDate">
+        <input type="date" name="deadlineDate" value="{{.DeadlineDate}}" id="deadlineDate">
     </td>
     <td>
-        <select id="status">
+        <select id="status" name="status">
             <option value="Waiting" {{if eq .Status "Waiting"}}selected{{end}}>Waiting</option>
             <option value="Now" {{if eq .Status "Now"}}selected{{end}}>Now</option>
             <option value="In Progress" {{if eq .Status "In Progress"}}selected{{end}}>In Progress</option>
@@ -19,10 +19,18 @@
         </select>
     </td>
     <td>
-        <button>Submit</button>
+        <button
+            hx-put="/todos/{{.ID}}"
+            hx-target="closest tr"
+            hx-swap="outerHTML"
+            hx-include="closest tr"
+        >
+            Submit
+        </button>
+    </td>
+    <td>
         <button
             hx-get="/todos/{{.ID}}"
-            hx-trigger="click"
             hx-target="closest tr"
             hx-swap="outerHTML"
         >
