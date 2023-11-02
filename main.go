@@ -84,7 +84,11 @@ func main() {
 	}
 	defer db.Close()
 
+	staticFiles := http.FileServer(http.Dir("static"))
+	http.Handle("/static/", http.StripPrefix("/static/", staticFiles))
+
 	r := mux.NewRouter()
+
 	r.HandleFunc("/", GetHomePageHTML).Methods("GET")
 	r.HandleFunc("/todos", GetAllTodosHTML).Methods("GET")
 	r.HandleFunc("/todos", CreateTodo).Methods("POST")
