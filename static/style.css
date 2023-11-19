@@ -34,12 +34,31 @@ thead {
 button {
 	margin-top: 10px;
 	padding: 10px 15px;
-	background-color: #4caf50;
 	color: #fff;
 	border: none;
 	cursor: pointer;
 }
 
-button:hover {
+.btn-edit {
+	background-color: #4caf50;
+}
+
+.btn-edit:hover {
 	background-color: #45a049;
+}
+
+.btn-delete {
+	background-color: #f44336;
+}
+
+.btn-delete:hover {
+	background-color: #e53935;
+}
+
+.btn-cancel {
+	background-color: #aaa;
+}
+
+.btn-cancel:hover {
+	background-color: #999;
 }

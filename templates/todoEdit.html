@@ -24,6 +24,7 @@
             hx-target="closest tr"
             hx-swap="outerHTML"
             hx-include="closest tr"
+            class="btn-edit"
         >
             Submit
         </button>
@@ -33,6 +34,7 @@
             hx-get="/todos/{{.ID}}"
             hx-target="closest tr"
             hx-swap="outerHTML"
+            class="btn-cancel"
         >
             Cancel
         </button>
