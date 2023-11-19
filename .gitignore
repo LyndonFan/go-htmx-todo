@@ -4,6 +4,7 @@
 
 # file database
 *.db
+.DS_STORE
 
 # Binaries for programs and plugins
 *.exe
