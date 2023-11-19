@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"time"
 
@@ -78,11 +79,16 @@ func parseTemplate(filename, templateName string) *template.Template {
 
 func main() {
 	var err error
-	db, err = sql.Open("sqlite3", "todo.db")
+	db, err = SetUpDatabase()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
+
+	err = CreateTable()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	staticFiles := http.FileServer(http.Dir("static"))
 	http.Handle("/static/", http.StripPrefix("/static/", staticFiles))
@@ -101,6 +107,31 @@ func main() {
 
 	fmt.Println("Server is running on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func SetUpDatabase() (*sql.DB, error) {
+	var err error
+	if _, err := os.Stat("todo.db"); os.IsNotExist(err) {
+		// Create the todo.db file
+		_, err = os.OpenFile("todo.db", os.O_CREATE, 0644)
+		if err != nil {
+			return nil, err
+		}
+	}
+	db, err = sql.Open("sqlite3", "todo.db")
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func CreateTable() error {
+	script, err := os.ReadFile("createTable.sql")
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(string(script))
+	return err
 }
 
 func GetHomePageHTML(w http.ResponseWriter, r *http.Request) {
